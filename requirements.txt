@@ -1,0 +1,6 @@
+gradio
+qwen-tts
+torch
+soundfile
+requests
+numpy
