@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чарли - голосовой ассистент</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            min-height: 100vh;
+            color: #eee;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .nav {
+            background: rgba(0,0,0,0.3);
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .nav a {
+            color: #eee;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+
+        .nav a:hover, .nav a.active {
+            background: #00adb5;
+        }
+
+        .voice-status {
+            background: #2d2d44;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .status-listening {
+            background: #00adb5;
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-sleeping {
+            background: #ff6f61;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .chat-container {
+            background: #2d2d44;
+            border-radius: 15px;
+            overflow: hidden;
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 18px;
+        }
+
+        .message.user .message-content {
+            background: #00adb5;
+            color: white;
+        }
+
+        .message.assistant .message-content {
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        .message-time {
+            font-size: 10px;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 15px;
+            background: #1a1a2e;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 25px;
+            background: #3d3d5c;
+            color: white;
+            font-size: 16px;
+        }
+
+        .chat-input input:focus {
+            outline: none;
+            background: #4d4d6c;
+        }
+
+        .chat-input button, .voice-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+
+        .chat-input button {
+            background: #00adb5;
+            color: white;
+        }
+
+        .voice-btn {
+            background: #ff6f61;
+            color: white;
+        }
+
+        .wake-word {
+            background: #00adb5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        .mic-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            background: #3d3d5c;
+            color: white;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        button[type="submit"] {
+            background: #00adb5;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .scenario-item {
+            background: #3d3d5c;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .note-item {
+            background: #3d3d5c;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .delete-btn {
+            background: #ff6f61;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="#" onclick="loadPage('chat')" class="active">Чат</a>
+            <a href="#" onclick="loadPage('profile')">Мой профиль</a>
+            <a href="#" onclick="loadPage('character')">Личность Чарли</a>
+            <a href="#" onclick="loadPage('scenarios')">Мои сценарии</a>
+            <a href="#" onclick="loadPage('notes')">Заметки</a>
+        </div>
+
+        <div class="voice-status">
+            <span id="voiceStatus" class="status-badge status-sleeping">😴 Режим ожидания</span>
+            <button class="wake-word" onclick="toggleListening()" id="wakeBtn">🎙️ Сказать "Чарли"</button>
+        </div>
+
+        <div id="content"></div>
+    </div>
+
+    <script>
+        let listening = false;
+        let recognition = null;
+        let currentUser = "Друг";
+
+        async function init() {
+            await loadConfig();
+            loadPage('chat');
+
+            if ('webkitSpeechRecognition' in window) {
+                recognition = new webkitSpeechRecognition();
+                recognition.lang = 'ru-RU';
+                recognition.continuous = true;
+                recognition.interimResults = false;
+
+                recognition.onresult = async (event) => {
+                    const text = event.results[event.results.length-1][0].transcript;
+                    if (text.toLowerCase().includes("чарли")) {
+                        listening = true;
+                        updateStatus();
+                        document.getElementById('voiceStatus').innerHTML = '🎤 Активен... Скажите что-нибудь';
+
+                        setTimeout(async () => {
+                            if (listening) {
+                                const cleanText = text.toLowerCase().replace("чарли", "").trim();
+                                if (cleanText) {
+                                    await sendMessage(cleanText);
+                                } else {
+                                    document.getElementById('voiceStatus').innerHTML = '🎤 Слушаю...';
+                                }
+                            }
+                        }, 500);
+                    } else if (listening) {
+                        if (["стоп", "сброс", "стой"].includes(text.toLowerCase())) {
+                            listening = false;
+                            updateStatus();
+                            addMessage("Чарли", "Хорошо, я замолкаю");
+                        } else {
+                            await sendMessage(text);
+                        }
+                    }
+                };
+
+                recognition.onend = () => {
+                    if (listening) {
+                        recognition.start();
+                    }
+                };
+            }
+        }
+
+        function toggleListening() {
+            if (recognition) {
+                if (listening) {
+                    listening = false;
+                    recognition.stop();
+                    updateStatus();
+                    addMessage("Чарли", "Хорошо, я замолкаю");
+                } else {
+                    listening = true;
+                    recognition.start();
+                    updateStatus();
+                    document.getElementById('voiceStatus').innerHTML = '🎤 Скажите "Чарли"...';
+                }
+            }
+        }
+
+        function updateStatus() {
+            const statusEl = document.getElementById('voiceStatus');
+            const btnEl = document.getElementById('wakeBtn');
+
+            if (listening) {
+                statusEl.innerHTML = '🎤 Активен';
+                statusEl.className = 'status-badge status-listening';
+                btnEl.innerHTML = '🔴 Выключить (стоп)';
+            } else {
+                statusEl.innerHTML = '😴 Режим ожидания';
+                statusEl.className = 'status-badge status-sleeping';
+                btnEl.innerHTML = '🎙️ Сказать "Чарли"';
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                currentUser = config.address.user_name;
+            } catch(e) {}
+        }
+
+        async function sendMessage(text) {
+            addMessage(currentUser, text);
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text: text})
+                });
+                const data = await response.json();
+                addMessage("Чарли", data.response);
+            } catch(e) {
+                addMessage("Чарли", "Извините, произошла ошибка");
+            }
+        }
+
+        function addMessage(sender, text) {
+            const chatDiv = document.getElementById('chat-messages');
+            if (!chatDiv) return;
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender === currentUser ? 'user' : 'assistant'}`;
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <strong>${sender === currentUser ? 'Вы' : sender}</strong><br>
+                    ${text}
+                    <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                </div>
+            `;
+            chatDiv.appendChild(messageDiv);
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
+
+        async function loadPage(page) {
+            const content = document.getElementById('content');
+
+            if (page === 'chat') {
+                content.innerHTML = `
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chat-messages"></div>
+                        <div class="chat-input">
+                            <input type="text" id="messageInput" placeholder="Напишите сообщение..." onkeypress="if(event.key==='Enter') sendTextMessage()">
+                            <button onclick="sendTextMessage()">Отправить</button>
+                            <button class="voice-btn" onclick="toggleListening()">🎤 Голос</button>
+                        </div>
+                    </div>
+                `;
+            } else if (page === 'profile') {
+                content.innerHTML = `
+                    <h2>Мой профиль</h2>
+                    <form id="profileForm">
+                        <div class="form-group">
+                            <label>Как к вам обращаться?</label>
+                            <input type="text" name="user_name" id="user_name">
+                        </div>
+                        <div class="form-group">
+                            <label>Обращение (ты/вы)</label>
+                            <select name="pronoun" id="pronoun">
+                                <option value="ты">ты</option>
+                                <option value="вы">вы</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Ваш город</label>
+                            <input type="text" name="city" id="city">
+                        </div>
+                        <button type="submit">Сохранить</button>
+                    </form>
+                `;
+
+                const config = await fetch('/api/config').then(r => r.json());
+                document.getElementById('user_name').value = config.address.user_name;
+                document.getElementById('pronoun').value = config.address.pronoun;
+                document.getElementById('city').value = config.location.city;
+
+                document.getElementById('profileForm').onsubmit = async (e) => {
+                    e.preventDefault();
+                    await fetch('/api/config', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            user_name: document.getElementById('user_name').value,
+                            pronoun: document.getElementById('pronoun').value,
+                            city: document.getElementById('city').value
+                        })
+                    });
+                    alert('Настройки сохранены!');
+                    await loadConfig();
+                };
+            } else if (page === 'character') {
+                content.innerHTML = `
+                    <h2>Личность Чарли</h2>
+                    <form id="characterForm">
+                        <div class="form-group">
+                            <label>Характер персонажа</label>
+                            <textarea name="personality" id="personality"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Стиль ответов</label>
+                            <textarea name="response_style" id="response_style"></textarea>
+                        </div>
+                        <button type="submit">Сохранить</button>
+                    </form>
+                `;
+
+                const config = await fetch('/api/config').then(r => r.json());
+                document.getElementById('personality').value = config.character.personality;
+                document.getElementById('response_style').value = config.character.response_style;
+
+                document.getElementById('characterForm').onsubmit = async (e) => {
+                    e.preventDefault();
+                    await fetch('/api/config', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            personality: document.getElementById('personality').value,
+                            response_style: document.getElementById('response_style').value
+                        })
+                    });
+                    alert('Характер сохранён!');
+                };
+            } else if (page === 'scenarios') {
+                content.innerHTML = `
+                    <h2>Мои сценарии</h2>
+                    <form id="scenarioForm">
+                        <div class="form-group">
+                            <label>Ключевая фраза (триггер)</label>
+                            <input type="text" name="trigger" id="trigger">
+                        </div>
+                        <div class="form-group">
+                            <label>Ответ Чарли</label>
+                            <input type="text" name="response" id="response">
+                        </div>
+                        <button type="submit">Добавить сценарий</button>
+                    </form>
+                    <div id="scenariosList"></div>
+                `;
+                await loadScenariosList();
+
+                document.getElementById('scenarioForm').onsubmit = async (e) => {
+                    e.preventDefault();
+                    const trigger = document.getElementById('trigger').value;
+                    const response = document.getElementById('response').value;
+
+                    const scenarios = await fetch('/api/scenarios').then(r => r.json());
+                    scenarios.scenarios.push({trigger, response});
+                    await fetch('/api/scenarios', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(scenarios)
+                    });
+                    document.getElementById('trigger').value = '';
+                    document.getElementById('response').value = '';
+                    await loadScenariosList();
+                };
+            } else if (page === 'notes') {
+                content.innerHTML = `
+                    <h2>Заметки и напоминания</h2>
+                    <form id="noteForm">
+                        <div class="form-group">
+                            <label>Новая заметка</label>
+                            <textarea name="note" id="note"></textarea>
+                        </div>
+                        <button type="submit">Добавить заметку</button>
+                    </form>
+                    <div id="notesList"></div>
+                `;
+                await loadNotesList();
+
+                document.getElementById('noteForm').onsubmit = async (e) => {
+                    e.preventDefault();
+                    const note = document.getElementById('note').value;
+                    const notes = await fetch('/api/notes').then(r => r.json());
+                    notes.notes.push({text: note, date: new Date().toISOString()});
+                    await fetch('/api/notes', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(notes)
+                    });
+                    document.getElementById('note').value = '';
+                    await loadNotesList();
+                };
+            }
+        }
+
+        async function loadScenariosList() {
+            const scenarios = await fetch('/api/scenarios').then(r => r.json());
+            const container = document.getElementById('scenariosList');
+            if (!container) return;
+
+            container.innerHTML = '<h3>Сохранённые сценарии</h3>';
+            for (let s of scenarios.scenarios) {
+                container.innerHTML += `
+                    <div class="scenario-item">
+                        <strong>🔊 "${s.trigger}"</strong> → "${s.response}"
+                        <button class="delete-btn" onclick="deleteScenario('${s.trigger}')">Удалить</button>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadNotesList() {
+            const notes = await fetch('/api/notes').then(r => r.json());
+            const container = document.getElementById('notesList');
+            if (!container) return;
+
+            container.innerHTML = '<h3>Мои заметки</h3>';
+            for (let n of notes.notes || []) {
+                container.innerHTML += `
+                    <div class="note-item">
+                        📝 ${n.text}
+                        <div class="message-time">${new Date(n.date).toLocaleString()}</div>
+                        <button class="delete-btn" onclick="deleteNote('${n.date}')">Удалить</button>
+                    </div>
+                `;
+            }
+        }
+
+        async function sendTextMessage() {
+            const input = document.getElementById('messageInput');
+            if (input && input.value.trim()) {
+                await sendMessage(input.value);
+                input.value = '';
+            }
+        }
+
+        async function deleteScenario(trigger) {
+            const scenarios = await fetch('/api/scenarios').then(r => r.json());
+            scenarios.scenarios = scenarios.scenarios.filter(s => s.trigger !== trigger);
+            await fetch('/api/scenarios', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(scenarios)
+            });
+            await loadScenariosList();
+        }
+
+        async function deleteNote(date) {
+            const notes = await fetch('/api/notes').then(r => r.json());
+            notes.notes = notes.notes.filter(n => n.date !== date);
+            await fetch('/api/notes', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(notes)
+            });
+            await loadNotesList();
+        }
+
+        init();
+    </script>
+</body>
+</html>

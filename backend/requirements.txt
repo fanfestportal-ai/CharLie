@@ -1,0 +1,6 @@
+gradio
+torch
+soundfile
+requests
+numpy
+pyaudio
